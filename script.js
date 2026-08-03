@@ -1,0 +1,36 @@
+const chat = document.getElementById("chat");
+const prompt = document.getElementById("prompt");
+const sendBtn = document.getElementById("sendBtn");
+
+sendBtn.addEventListener("click", async () => {
+  const text = prompt.value.trim();
+  if (!text) return;
+
+  chat.innerHTML += `<div class="user">${text}</div>`;
+  prompt.value = "";
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer OpenAI_api_key",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: [
+          { role: "user", content: text }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || "No response.";
+
+    chat.innerHTML += `<div class="ai">${reply}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+  } catch (err) {
+    chat.innerHTML += `<div class="ai">Error: ${err.message}</div>`;
+  }
+});
