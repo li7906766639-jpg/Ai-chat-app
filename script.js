@@ -13,7 +13,7 @@ sendBtn.addEventListener("click", async () => {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer OpenAI_api_key",
+        "Authorization": "Bearer" Authorization": "Bearer OpenAI_api_key" ",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
