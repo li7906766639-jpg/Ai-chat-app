@@ -10,14 +10,14 @@ sendBtn.addEventListener("click", async () => {
   prompt.value = "";
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetchconst response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer OpenAI_api_key" ",
+        "Authorization": "Bearer ${env.OPENAI_API_KEY}`
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: /gpt-4o-mini",
         messages: [
           { role: "user", content: text }
         ]
