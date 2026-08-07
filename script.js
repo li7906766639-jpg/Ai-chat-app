@@ -20,7 +20,7 @@ sendBtn.addEventListener("click", async () => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: /gpt-4o-mini
+        model: (gpt-4o-mini) 
         messages: [
           { role: "user", content: text }
         ]
@@ -36,4 +36,4 @@ sendBtn.addEventListener("click", async () => {
   } catch (err) {
     chat.innerHTML += `<div class="ai">Error: ${err.message}</div>`;
   }
-});
+})
