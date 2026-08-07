@@ -10,7 +10,10 @@ sendBtn.addEventListener("click", async () => {
   prompt.value = "";
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://red-sky-7adc.li7906766639.workers.dev
+
+
+", {
       method: "POST",
       headers: {
         "Authorization": "Bearer ${env.OPENROUTER_API_KEY}`
