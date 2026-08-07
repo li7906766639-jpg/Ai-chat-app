@@ -16,7 +16,7 @@ sendBtn.addEventListener("click", async () => {
 ", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer ${env.OPENROUTER_API_KEY}`
+  
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
