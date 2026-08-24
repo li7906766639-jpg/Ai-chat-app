@@ -10,7 +10,8 @@ sendBtn.addEventListener("click", async () => {
   prompt.value = "";
 
   try {
-    const response = await fetch(https://h6n76q-3000.csb.app/
+    const response = await fetch("https://h6n76q-3000.csb.app/chat");
+
 
 
 ", {
