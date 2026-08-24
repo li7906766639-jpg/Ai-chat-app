@@ -10,7 +10,7 @@ sendBtn.addEventListener("click", async () => {
   prompt.value = "";
 
   try {
-    const response = await fetch("https://red-sky-7adc.li7906766639.workers.dev
+    const response = await fetch(https://h6n76q-3000.csb.app/
 
 
 ", {
