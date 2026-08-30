@@ -7,6 +7,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+// Debug logging
+console.log('Environment Check:');
+console.log('API Key Present:', !!OPENAI_API_KEY);
+console.log('API Key Length:', OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -67,10 +72,11 @@ app.get('/', (req, res) => {
         .message {
           padding: 12px 15px;
           border-radius: 10px;
-          max-width: 80%;
+          max-width: 85%;
           word-wrap: break-word;
           animation: fadeIn 0.3s ease-in;
           line-height: 1.4;
+          font-size: 14px;
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
@@ -87,6 +93,11 @@ app.get('/', (req, res) => {
           background: #f0f0f0;
           color: #333;
           border-radius: 15px 15px 15px 0;
+        }
+        .error-message {
+          background: #ffebee;
+          color: #c62828;
+          border-left: 4px solid #c62828;
         }
         .input-area {
           display: flex;
@@ -120,9 +131,10 @@ app.get('/', (req, res) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: transform 0.2s, box-shadow 0.2s;
+          transition: all 0.2s;
           box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
           flex-shrink: 0;
+          padding: 0;
         }
         button:hover:not(:disabled) {
           transform: scale(1.05);
@@ -152,11 +164,6 @@ app.get('/', (req, res) => {
         @keyframes bounce {
           0%, 80%, 100% { opacity: 0.3; }
           40% { opacity: 1; }
-        }
-        .error-message {
-          background: #ffebee;
-          color: #c62828;
-          border-left: 4px solid #c62828;
         }
       </style>
     </head>
@@ -205,7 +212,7 @@ app.get('/', (req, res) => {
 
         async function sendMessage() {
           const text = inputField.value.trim();
-          if (!text) return;
+          if (!text || sendBtn.disabled) return;
 
           sendBtn.disabled = true;
           addMessage(text, true);
@@ -213,8 +220,6 @@ app.get('/', (req, res) => {
           showLoading();
 
           try {
-            console.log('Sending message:', text);
-            
             const response = await fetch('/chat', {
               method: 'POST',
               headers: { 
@@ -226,29 +231,18 @@ app.get('/', (req, res) => {
               })
             });
 
-            console.log('Response status:', response.status);
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error?.message || 'Server error');
-            }
-
             const data = await response.json();
-            console.log('Response data:', data);
-            
             removeLoading();
 
-            if (data.choices && data.choices[0] && data.choices[0].message) {
+            if (response.ok && data.choices && data.choices[0]?.message?.content) {
               addMessage(data.choices[0].message.content, false);
-            } else if (data.error) {
-              addMessage('Error: ' + (data.error.message || JSON.stringify(data.error)), false, true);
             } else {
-              addMessage('Unexpected response format', false, true);
+              const errorMsg = data.error?.message || 'Failed to get response';
+              addMessage('Error: ' + errorMsg, false, true);
             }
           } catch (error) {
-            console.error('Error:', error);
             removeLoading();
-            addMessage('Error: ' + error.message, false, true);
+            addMessage('Connection error: ' + error.message, false, true);
           } finally {
             sendBtn.disabled = false;
             inputField.focus();
@@ -274,16 +268,17 @@ app.post('/chat', async (req, res) => {
   try {
     const { messages, model } = req.body;
 
-    console.log('Chat request received:', { messages, model });
-
-    if (!messages || !Array.isArray(messages)) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: { message: 'Invalid messages format' } });
     }
 
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: { message: 'API key not configured' } });
+    if (!OPENAI_API_KEY || OPENAI_API_KEY.trim() === '') {
+      console.error('API Key not configured!');
+      return res.status(500).json({ error: { message: 'Server not properly configured. API key missing.' } });
     }
 
+    console.log('Calling OpenAI API...');
+    
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: model || 'gpt-3.5-turbo',
       messages: messages,
@@ -293,24 +288,40 @@ app.post('/chat', async (req, res) => {
       headers: {
         'Authorization': \`Bearer \${OPENAI_API_KEY}\`,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 30000
     });
 
+    console.log('OpenAI API response successful');
     res.json(response.data);
+
   } catch (error) {
-    console.error('Error:', error.response?.data || error.message);
-    res.status(500).json({ 
-      error: error.response?.data?.error || { message: 'Server error: ' + error.message }
+    console.error('Chat Error:', {
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data
+    });
+
+    const errorMessage = error.response?.data?.error?.message || 
+                        error.message || 
+                        'Server error occurred';
+
+    res.status(error.response?.status || 500).json({ 
+      error: { message: errorMessage }
     });
   }
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running!' });
+  res.json({ 
+    status: 'Server is running!',
+    apiKeyConfigured: !!OPENAI_API_KEY
+  });
 });
 
 app.listen(PORT, () => {
   console.log(\`🚀 Server running on port \${PORT}\`);
+  console.log(\`✅ API Key configured: \${!!OPENAI_API_KEY}\`);
 });
 
 module.exports = app;
