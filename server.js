@@ -9,7 +9,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static('public'));
 
 // Serve HTML on root
@@ -69,6 +70,7 @@ app.get('/', (req, res) => {
           max-width: 80%;
           word-wrap: break-word;
           animation: fadeIn 0.3s ease-in;
+          line-height: 1.4;
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
@@ -95,12 +97,13 @@ app.get('/', (req, res) => {
         }
         input {
           flex: 1;
-          border: 1px solid #ddd;
+          border: 2px solid #ddd;
           border-radius: 25px;
           padding: 12px 20px;
           font-size: 14px;
           outline: none;
           transition: border-color 0.3s;
+          font-family: inherit;
         }
         input:focus {
           border-color: #667eea;
@@ -117,13 +120,20 @@ app.get('/', (req, res) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: transform 0.2s;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+          flex-shrink: 0;
         }
-        button:hover {
+        button:hover:not(:disabled) {
           transform: scale(1.05);
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
         }
-        button:active {
+        button:active:not(:disabled) {
           transform: scale(0.95);
+        }
+        button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .loading {
           display: flex;
@@ -143,6 +153,11 @@ app.get('/', (req, res) => {
           0%, 80%, 100% { opacity: 0.3; }
           40% { opacity: 1; }
         }
+        .error-message {
+          background: #ffebee;
+          color: #c62828;
+          border-left: 4px solid #c62828;
+        }
       </style>
     </head>
     <body>
@@ -151,17 +166,24 @@ app.get('/', (req, res) => {
         <div class="messages" id="messages"></div>
         <div class="input-area">
           <input type="text" id="input" placeholder="Type your message..." autocomplete="off">
-          <button onclick="sendMessage()">➤</button>
+          <button id="sendBtn" onclick="sendMessage()">➤</button>
         </div>
       </div>
 
       <script>
         const messagesDiv = document.getElementById('messages');
         const inputField = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
 
-        function addMessage(text, isUser) {
+        function addMessage(text, isUser, isError = false) {
           const msgEl = document.createElement('div');
-          msgEl.className = isUser ? 'message user-message' : 'message bot-message';
+          let className = 'message ';
+          if (isError) {
+            className += 'bot-message error-message';
+          } else {
+            className += isUser ? 'user-message' : 'bot-message';
+          }
+          msgEl.className = className;
           msgEl.textContent = text;
           messagesDiv.appendChild(msgEl);
           messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -185,39 +207,62 @@ app.get('/', (req, res) => {
           const text = inputField.value.trim();
           if (!text) return;
 
+          sendBtn.disabled = true;
           addMessage(text, true);
           inputField.value = '';
           showLoading();
 
           try {
+            console.log('Sending message:', text);
+            
             const response = await fetch('/chat', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+              },
               body: JSON.stringify({
                 messages: [{ role: 'user', content: text }],
                 model: 'gpt-3.5-turbo'
               })
             });
 
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error?.message || 'Server error');
+            }
+
             const data = await response.json();
+            console.log('Response data:', data);
+            
             removeLoading();
 
-            if (data.choices && data.choices[0]) {
+            if (data.choices && data.choices[0] && data.choices[0].message) {
               addMessage(data.choices[0].message.content, false);
             } else if (data.error) {
-              addMessage('Error: ' + data.error.message, false);
+              addMessage('Error: ' + (data.error.message || JSON.stringify(data.error)), false, true);
+            } else {
+              addMessage('Unexpected response format', false, true);
             }
           } catch (error) {
+            console.error('Error:', error);
             removeLoading();
-            addMessage('Connection error. Try again!', false);
+            addMessage('Error: ' + error.message, false, true);
+          } finally {
+            sendBtn.disabled = false;
+            inputField.focus();
           }
         }
 
         inputField.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') sendMessage();
+          if (e.key === 'Enter' && !sendBtn.disabled) {
+            sendMessage();
+          }
         });
 
         addMessage('Hi! I am KathaGPT. How can I help you today? 😊', false);
+        inputField.focus();
       </script>
     </body>
     </html>
@@ -229,12 +274,14 @@ app.post('/chat', async (req, res) => {
   try {
     const { messages, model } = req.body;
 
+    console.log('Chat request received:', { messages, model });
+
     if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Invalid messages format' });
+      return res.status(400).json({ error: { message: 'Invalid messages format' } });
     }
 
     if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: 'API key not configured' });
+      return res.status(500).json({ error: { message: 'API key not configured' } });
     }
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -244,7 +291,7 @@ app.post('/chat', async (req, res) => {
       max_tokens: 1000
     }, {
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': \`Bearer \${OPENAI_API_KEY}\`,
         'Content-Type': 'application/json'
       }
     });
@@ -253,7 +300,7 @@ app.post('/chat', async (req, res) => {
   } catch (error) {
     console.error('Error:', error.response?.data || error.message);
     res.status(500).json({ 
-      error: error.response?.data?.error || { message: 'Server error occurred' }
+      error: error.response?.data?.error || { message: 'Server error: ' + error.message }
     });
   }
 });
@@ -263,7 +310,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(\`🚀 Server running on port \${PORT}\`);
 });
 
 module.exports = app;
