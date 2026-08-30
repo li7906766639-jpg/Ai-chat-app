@@ -10,18 +10,13 @@ sendBtn.addEventListener("click", async () => {
   prompt.value = "";
 
   try {
-    const response = await fetch("https://h6n76q-3000.csb.app/chat");
-
-
-
-", {
+    const response = await fetch("http://localhost:3000/chat", {
       method: "POST",
       headers: {
-  
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini"
+        model: "gpt-4o-mini",
         messages: [
           { role: "user", content: text }
         ]
