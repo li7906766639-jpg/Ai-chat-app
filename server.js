@@ -7,8 +7,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CHATBOT_SERVER_URL = process.env.CHATBOT_SERVER_URL;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTR_API_KEY || process.env.OPEN_RAOUTER_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const CONFIGURED_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTR_API_KEY || process.env.OPEN_RAOUTER_API_KEY;
+const CONFIGURED_OPENAI_KEY = process.env.OPENAI_API_KEY;
+const USE_OPENROUTER = Boolean(CONFIGURED_OPENROUTER_KEY && CONFIGURED_OPENROUTER_KEY.startsWith('sk-or-'));
+const OPENROUTER_API_KEY = USE_OPENROUTER ? CONFIGURED_OPENROUTER_KEY : undefined;
+const OPENAI_API_KEY = USE_OPENROUTER ? CONFIGURED_OPENAI_KEY : (CONFIGURED_OPENAI_KEY || CONFIGURED_OPENROUTER_KEY);
 const API_KEY = OPENROUTER_API_KEY || OPENAI_API_KEY;
 const API_URL = CHATBOT_SERVER_URL || (OPENROUTER_API_KEY
   ? 'https://openrouter.ai/api/v1/chat/completions'
@@ -291,7 +294,7 @@ app.post('/chat', async (req, res) => {
     }, {
       headers: {
         'Content-Type': 'application/json',
-        ...(CHATBOT_SERVER_URL || !API_KEY ? {} : { 'Authorization': `Bearer ${API_KEY}` }),
+        ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
         ...(OPENROUTER_API_KEY && !CHATBOT_SERVER_URL ? { 'HTTP-Referer': 'http://localhost:3000', 'X-Title': 'KathaGPT' } : {})
       },
       timeout: 30000
