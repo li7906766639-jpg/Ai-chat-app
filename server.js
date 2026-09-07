@@ -286,7 +286,7 @@ app.post('/chat', async (req, res) => {
       max_tokens: 1000
     }, {
       headers: {
-        'Authorization': \`Bearer \${OPENAI_API_KEY}\`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json'
       },
       timeout: 30000
@@ -337,8 +337,8 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(\`🚀 Server running on port \${PORT}\`);
-  console.log(\`✅ API Key configured: \${!!OPENAI_API_KEY}\`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ API Key configured: ${!!OPENAI_API_KEY}`);
 });
 
 module.exports = app;
