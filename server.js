@@ -1,16 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+require('dotenv').config({ path: '.env.development.local' });
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const CHATBOT_SERVER_URL = process.env.CHATBOT_SERVER_URL;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.OPENROUTR_API_KEY || process.env.OPEN_RAOUTER_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const API_KEY = OPENROUTER_API_KEY || OPENAI_API_KEY;
+const API_URL = CHATBOT_SERVER_URL || (OPENROUTER_API_KEY
+  ? 'https://openrouter.ai/api/v1/chat/completions'
+  : 'https://api.openai.com/v1/chat/completions');
 
-// Debug logging
-console.log('Environment Check:');
-console.log('API Key Present:', !!OPENAI_API_KEY);
-console.log('API Key Length:', OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
+console.log('API provider configured:', OPENROUTER_API_KEY ? 'OpenRouter' : OPENAI_API_KEY ? 'OpenAI' : 'none');
 
 // Middleware
 app.use(cors());
@@ -272,22 +276,23 @@ app.post('/chat', async (req, res) => {
       return res.status(400).json({ error: { message: 'Invalid messages format' } });
     }
 
-    if (!OPENAI_API_KEY || OPENAI_API_KEY.trim() === '') {
+    if (!API_KEY || API_KEY.trim() === '') {
       console.error('API Key not configured!');
       return res.status(500).json({ error: { message: 'Server not properly configured. API key missing.' } });
     }
 
     console.log('Calling OpenAI API...');
     
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+    const response = await axios.post(API_URL, {
       model: model || 'gpt-3.5-turbo',
       messages: messages,
       temperature: 0.7,
       max_tokens: 1000
     }, {
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(CHATBOT_SERVER_URL || !API_KEY ? {} : { 'Authorization': `Bearer ${API_KEY}` }),
+        ...(OPENROUTER_API_KEY && !CHATBOT_SERVER_URL ? { 'HTTP-Referer': 'http://localhost:3000', 'X-Title': 'KathaGPT' } : {})
       },
       timeout: 30000
     });
@@ -314,7 +319,7 @@ app.post('/chat', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   try {
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+    const response = await axios.post(API_URL, {
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: message }],
     }, {
@@ -332,7 +337,8 @@ app.post('/api/chat', async (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'Server is running!',
-    apiKeyConfigured: !!OPENAI_API_KEY
+    apiKeyConfigured: !!API_KEY,
+    provider: OPENROUTER_API_KEY ? 'openrouter' : OPENAI_API_KEY ? 'openai' : 'none'
   });
 });
 
